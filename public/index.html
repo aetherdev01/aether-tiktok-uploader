@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Aether TikTok Uploader</title>
+<style>
+  :root{
+    --bg: #0a0c10;
+    --panel: #12151b;
+    --panel-hi: #181c24;
+    --line: #23272f;
+    --accent: #4fe0d0;
+    --tiktok-pink: #fe2c55;
+    --text: #e8ecef;
+    --text-dim: #8b93a1;
+    --danger: #ff5c5c;
+    --ok: #4fe0a0;
+    --radius: 14px;
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100dvh;
+  }
+
+  body {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    display: flex;
+    flex-direction: column;
+  }
+
+  header { padding: 22px 20px 14px; flex-shrink: 0; }
+  header .mark { font-size: 13px; letter-spacing: 0.02em; color: var(--accent); font-weight: 600; margin-bottom: 2px; }
+  header h1 { font-size: 22px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+  header p { margin: 6px 0 0; font-size: 14px; color: var(--text-dim); line-height: 1.4; }
+
+  main {
+    flex: 1;
+    padding: 4px 20px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 560px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  /* Account card */
+  .account-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .account-avatar {
+    width: 42px; height: 42px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--tiktok-pink), #25f4ee);
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 700; color: #06110f;
+  }
+  .account-info { flex: 1; min-width: 0; }
+  .account-info .name { font-size: 14.5px; font-weight: 600; }
+  .account-info .status { font-size: 12.5px; color: var(--text-dim); margin-top: 1px; }
+  .account-info .status.connected { color: var(--ok); }
+
+  .login-btn {
+    background: var(--tiktok-pink);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 11px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .logout-link {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    text-decoration: underline;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  /* Drop / picker zone */
+  .drop-zone {
+    position: relative;
+    border: 1.5px dashed var(--line);
+    border-radius: var(--radius);
+    background: var(--panel);
+    min-height: 220px;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .drop-zone.has-video { border-style: solid; border-color: var(--line); background: #000; }
+  .drop-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .drop-zone.disabled input[type="file"] { pointer-events: none; }
+  .drop-zone.disabled { opacity: 0.5; }
+
+  .drop-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 24px; pointer-events: none; text-align: center; }
+  .drop-empty svg { width: 36px; height: 36px; stroke: var(--text-dim); }
+  .drop-empty .primary { font-size: 15px; font-weight: 600; color: var(--text); }
+  .drop-empty .secondary { font-size: 13px; color: var(--text-dim); }
+
+  video.preview { width: 100%; max-height: 360px; display: block; background: #000; }
+
+  .clear-btn {
+    position: absolute; top: 10px; right: 10px;
+    width: 30px; height: 30px; border-radius: 50%;
+    background: rgba(10,12,16,0.75); backdrop-filter: blur(6px);
+    border: none; color: #fff; font-size: 16px; line-height: 1;
+    display: flex; align-items: center; justify-content: center; z-index: 2;
+  }
+
+  .file-meta { font-size: 12.5px; color: var(--text-dim); padding: 0 2px; display: none; }
+  .file-meta.show { display: block; }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 13px; font-weight: 600; color: var(--text-dim); }
+  .field textarea {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 14px; color: var(--text); font-size: 15px; font-family: inherit;
+    resize: none; outline: none; min-height: 70px; line-height: 1.4;
+  }
+  .field textarea:focus { border-color: var(--accent); }
+  .char-count { font-size: 11.5px; color: var(--text-dim); text-align: right; }
+
+  .privacy-select {
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .privacy-option {
+    flex: 1; min-width: 90px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px; text-align: center; font-size: 13px; color: var(--text-dim);
+    cursor: pointer;
+  }
+  .privacy-option.selected { border-color: var(--accent); color: var(--accent); background: var(--panel-hi); }
+
+  .publish-btn {
+    margin-top: 4px;
+    background: var(--accent);
+    color: #06110f;
+    border: none; border-radius: 12px; padding: 15px;
+    font-size: 16px; font-weight: 700; letter-spacing: -0.01em;
+    cursor: pointer; transition: opacity 0.15s ease, transform 0.1s ease;
+  }
+  .publish-btn:active { transform: scale(0.98); }
+  .publish-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .progress-wrap { display: none; flex-direction: column; gap: 8px; }
+  .progress-wrap.show { display: flex; }
+  .progress-track { height: 8px; background: var(--panel); border-radius: 99px; overflow: hidden; border: 1px solid var(--line); }
+  .progress-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 99px; transition: width 0.1s ease; }
+  .progress-label { font-size: 13px; color: var(--text-dim); display: flex; justify-content: space-between; }
+
+  .status { display: none; border-radius: 10px; padding: 12px 14px; font-size: 13.5px; line-height: 1.4; border: 1px solid transparent; }
+  .status.show { display: block; }
+  .status.ok { background: rgba(79,224,160,0.08); border-color: rgba(79,224,160,0.3); color: var(--ok); }
+  .status.err { background: rgba(255,92,92,0.08); border-color: rgba(255,92,92,0.3); color: var(--danger); }
+  .status.info { background: rgba(79,224,208,0.08); border-color: rgba(79,224,208,0.3); color: var(--accent); }
+
+  footer { text-align: center; padding: 10px 20px 26px; font-size: 11.5px; color: #4a5058; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="mark">AETHER</div>
+  <h1>TikTok Uploader</h1>
+  <p>Login sekali, lalu upload video langsung dari iPhone ke akun TikTok kamu.</p>
+</header>
+
+<main>
+
+  <div class="account-card">
+    <div class="account-avatar" id="accountAvatar">?</div>
+    <div class="account-info">
+      <div class="name" id="accountName">Belum terhubung</div>
+      <div class="status" id="accountStatus">Login untuk mulai upload</div>
+    </div>
+    <button class="login-btn" id="loginBtn">Login TikTok</button>
+    <button class="logout-link" id="logoutBtn" style="display:none;">Keluar</button>
+  </div>
+
+  <div class="drop-zone disabled" id="dropZone">
+    <div class="drop-empty" id="dropEmpty">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 7l-7 5 7 5V7z"/>
+        <rect x="1" y="5" width="15" height="14" rx="2"/>
+      </svg>
+      <div class="primary">Login TikTok dulu</div>
+      <div class="secondary">baru bisa pilih video</div>
+    </div>
+    <video class="preview" id="previewVideo" playsinline muted controls style="display:none;"></video>
+    <button class="clear-btn" id="clearBtn" style="display:none;">✕</button>
+    <input type="file" id="fileInput" accept="video/*" disabled>
+  </div>
+
+  <div class="file-meta" id="fileMeta"></div>
+
+  <div class="field">
+    <label for="captionInput">Caption</label>
+    <textarea id="captionInput" placeholder="Tulis caption untuk video ini..." maxlength="2200"></textarea>
+    <div class="char-count"><span id="charCount">0</span>/2200</div>
+  </div>
+
+  <div class="field">
+    <label>Privasi Postingan</label>
+    <div class="privacy-select" id="privacySelect"></div>
+  </div>
+
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label"><span id="progressPct">0%</span><span id="progressStage"></span></div>
+  </div>
+
+  <div class="status" id="statusBox"></div>
+
+  <button class="publish-btn" id="publishBtn" disabled>Login TikTok dulu</button>
+
+</main>
+
+<footer>
+  AetherDev · video dikirim langsung ke server TikTok lewat Content Posting API resmi.<br>
+  Postingan mungkin masuk sebagai draf di inbox TikTok kamu sampai app lolos audit penuh.
+</footer>
+
+<script>
+(function () {
+  const loginBtn = document.getElementById('loginBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const accountAvatar = document.getElementById('accountAvatar');
+  const accountName = document.getElementById('accountName');
+  const accountStatus = document.getElementById('accountStatus');
+
+  const dropZone = document.getElementById('dropZone');
+  const dropEmpty = document.getElementById('dropEmpty');
+  const fileInput = document.getElementById('fileInput');
+  const previewVideo = document.getElementById('previewVideo');
+  const clearBtn = document.getElementById('clearBtn');
+  const fileMeta = document.getElementById('fileMeta');
+  const captionInput = document.getElementById('captionInput');
+  const charCount = document.getElementById('charCount');
+  const privacySelect = document.getElementById('privacySelect');
+  const publishBtn = document.getElementById('publishBtn');
+  const progressWrap = document.getElementById('progressWrap');
+  const progressFill = document.getElementById('progressFill');
+  const progressPct = document.getElementById('progressPct');
+  const progressStage = document.getElementById('progressStage');
+  const statusBox = document.getElementById('statusBox');
+
+  let selectedFile = null;
+  let objectUrl = null;
+  let session = null; // { openId, displayName, accessToken (never exposed raw; see note) }
+  let privacyOptions = [];
+  let selectedPrivacy = null;
+
+  // ---------- Session handling ----------
+  // The access/refresh tokens themselves live server-side in an httpOnly
+  // session cookie set by /api/callback. The browser only ever holds a
+  // lightweight session flag + profile info returned by /api/session.
+
+  async function loadSession() {
+    try {
+      const res = await fetch('/api/session', { credentials: 'include' });
+      if (!res.ok) throw new Error('no session');
+      const data = await res.json();
+      if (data.connected) {
+        session = data;
+        renderConnected(data);
+        await loadCreatorInfo();
+      } else {
+        renderDisconnected();
+      }
+    } catch (e) {
+      renderDisconnected();
+    }
+  }
+
+  function renderConnected(data) {
+    accountAvatar.textContent = (data.displayName || 'T').slice(0, 1).toUpperCase();
+    accountName.textContent = data.displayName || 'Akun TikTok';
+    accountStatus.textContent = 'Terhubung';
+    accountStatus.classList.add('connected');
+    loginBtn.style.display = 'none';
+    logoutBtn.style.display = 'inline-block';
+
+    dropZone.classList.remove('disabled');
+    fileInput.disabled = false;
+    dropEmpty.querySelector('.primary').textContent = 'Tap untuk pilih video';
+    dropEmpty.querySelector('.secondary').textContent = 'dari galeri atau file iPhone';
+    updatePublishState();
+  }
+
+  function renderDisconnected() {
+    session = null;
+    accountAvatar.textContent = '?';
+    accountName.textContent = 'Belum terhubung';
+    accountStatus.textContent = 'Login untuk mulai upload';
+    accountStatus.classList.remove('connected');
+    loginBtn.style.display = 'inline-block';
+    logoutBtn.style.display = 'none';
+
+    dropZone.classList.add('disabled');
+    fileInput.disabled = true;
+    dropEmpty.querySelector('.primary').textContent = 'Login TikTok dulu';
+    dropEmpty.querySelector('.secondary').textContent = 'baru bisa pilih video';
+    publishBtn.disabled = true;
+    publishBtn.textContent = 'Login TikTok dulu';
+  }
+
+  async function loadCreatorInfo() {
+    try {
+      const res = await fetch('/api/creator-info', { credentials: 'include' });
+      if (!res.ok) return;
+      const data = await res.json();
+      privacyOptions = data.privacyLevelOptions || ['SELF_ONLY'];
+      renderPrivacyOptions();
+    } catch (e) {
+      privacyOptions = ['SELF_ONLY'];
+      renderPrivacyOptions();
+    }
+  }
+
+  function renderPrivacyOptions() {
+    const labels = {
+      PUBLIC_TO_EVERYONE: 'Publik',
+      MUTUAL_FOLLOW_FRIENDS: 'Teman',
+      FOLLOWER_OF_CREATOR: 'Pengikut',
+      SELF_ONLY: 'Privat'
+    };
+    privacySelect.innerHTML = '';
+    privacyOptions.forEach((opt, i) => {
+      const el = document.createElement('div');
+      el.className = 'privacy-option' + (i === 0 ? ' selected' : '');
+      el.textContent = labels[opt] || opt;
+      el.dataset.value = opt;
+      el.addEventListener('click', () => {
+        document.querySelectorAll('.privacy-option').forEach(o => o.classList.remove('selected'));
+        el.classList.add('selected');
+        selectedPrivacy = opt;
+      });
+      privacySelect.appendChild(el);
+    });
+    selectedPrivacy = privacyOptions[0] || 'SELF_ONLY';
+  }
+
+  loginBtn.addEventListener('click', () => {
+    window.location.href = '/api/auth';
+  });
+
+  logoutBtn.addEventListener('click', async () => {
+    await fetch('/api/logout', { method: 'POST', credentials: 'include' });
+    renderDisconnected();
+  });
+
+  // ---------- File handling ----------
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function resetStatus() {
+    statusBox.classList.remove('show', 'ok', 'err', 'info');
+    statusBox.textContent = '';
+  }
+
+  function showStatus(kind, message) {
+    statusBox.classList.add('show', kind);
+    ['ok', 'err', 'info'].forEach(k => { if (k !== kind) statusBox.classList.remove(k); });
+    statusBox.textContent = message;
+  }
+
+  function updatePublishState() {
+    if (!session) {
+      publishBtn.disabled = true;
+      publishBtn.textContent = 'Login TikTok dulu';
+      return;
+    }
+    if (!selectedFile) {
+      publishBtn.disabled = true;
+      publishBtn.textContent = 'Pilih video dulu';
+      return;
+    }
+    publishBtn.disabled = false;
+    publishBtn.textContent = 'Post ke TikTok';
+  }
+
+  function setFile(file) {
+    if (!file) return;
+    if (!file.type.startsWith('video/')) {
+      showStatus('err', 'File yang dipilih bukan video. Silakan pilih file video.');
+      return;
+    }
+    resetStatus();
+    selectedFile = file;
+
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    objectUrl = URL.createObjectURL(file);
+
+    previewVideo.src = objectUrl;
+    previewVideo.style.display = 'block';
+    dropEmpty.style.display = 'none';
+    clearBtn.style.display = 'flex';
+    dropZone.classList.add('has-video');
+
+    fileMeta.textContent = `${file.name} · ${formatBytes(file.size)}`;
+    fileMeta.classList.add('show');
+
+    updatePublishState();
+  }
+
+  function clearFile() {
+    selectedFile = null;
+    fileInput.value = '';
+    if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+    previewVideo.removeAttribute('src');
+    previewVideo.style.display = 'none';
+    dropEmpty.style.display = 'flex';
+    clearBtn.style.display = 'none';
+    dropZone.classList.remove('has-video');
+    fileMeta.classList.remove('show');
+    progressWrap.classList.remove('show');
+    resetStatus();
+    updatePublishState();
+  }
+
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    setFile(file);
+  });
+
+  clearBtn.addEventListener('click', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    clearFile();
+  });
+
+  captionInput.addEventListener('input', () => {
+    charCount.textContent = captionInput.value.length;
+  });
+
+  // ---------- Publish flow ----------
+  // Step 1: ask our server to initialize the upload with TikTok (server holds the token).
+  // Step 2: server returns a short-lived upload_url; browser PUTs the video bytes
+  //         directly to TikTok's upload_url (no token needed for this step, so the
+  //         video bytes don't have to round-trip through our own server).
+  async function publishVideo() {
+    if (!selectedFile || !session) return;
+
+    resetStatus();
+    publishBtn.disabled = true;
+    publishBtn.textContent = 'Memproses...';
+    progressWrap.classList.add('show');
+    progressFill.style.width = '0%';
+    progressPct.textContent = '0%';
+    progressStage.textContent = 'Menginisialisasi...';
+
+    try {
+      const initRes = await fetch('/api/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          videoSize: selectedFile.size,
+          caption: captionInput.value,
+          privacyLevel: selectedPrivacy
+        })
+      });
+
+      const initData = await initRes.json();
+      if (!initRes.ok) {
+        throw new Error(initData.error || 'Gagal menginisialisasi upload.');
+      }
+
+      const { uploadUrl, publishId } = initData;
+      progressStage.textContent = 'Mengupload video...';
+
+      await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', uploadUrl, true);
+        xhr.setRequestHeader('Content-Type', selectedFile.type || 'video/mp4');
+        xhr.setRequestHeader('Content-Range', `bytes 0-${selectedFile.size - 1}/${selectedFile.size}`);
+
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            progressFill.style.width = pct + '%';
+            progressPct.textContent = pct + '%';
+          }
+        });
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve();
+          else reject(new Error(`Upload video gagal (status ${xhr.status}).`));
+        };
+        xhr.onerror = () => reject(new Error('Upload video gagal karena masalah koneksi.'));
+        xhr.send(selectedFile);
+      });
+
+      progressStage.textContent = 'Selesai';
+      showStatus('ok', 'Video terkirim ke TikTok. Buka notifikasi inbox di app TikTok untuk menyelesaikan posting.');
+      publishBtn.textContent = 'Post ke TikTok';
+      publishBtn.disabled = false;
+
+    } catch (err) {
+      showStatus('err', err.message || 'Terjadi kesalahan saat upload.');
+      publishBtn.textContent = 'Post ke TikTok';
+      publishBtn.disabled = false;
+    }
+  }
+
+  publishBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    publishVideo();
+  });
+
+  loadSession();
+})();
+</script>
+
+</body>
+</html>

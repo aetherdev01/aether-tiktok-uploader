@@ -1,0 +1,9 @@
+{
+  "name": "aether-tiktok-uploader",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Web app pribadi untuk login TikTok (OAuth resmi) dan upload video via Content Posting API.",
+  "engines": {
+    "node": ">=18"
+  }
+}
