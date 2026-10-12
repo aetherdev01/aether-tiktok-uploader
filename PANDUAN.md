@@ -47,8 +47,27 @@ tambahkan tiga variabel ini (isi sesuai `.env.example`):
 Setelah itu, **redeploy** project (Vercel → Deployments → tombol "Redeploy").
 
 Balik lagi ke TikTok Developer Portal, pastikan Redirect URI yang didaftarkan
-di sana **sama persis** (termasuk `https://` dan tanpa trailing slash) dengan
-`TIKTOK_REDIRECT_URI` di atas.
+di produk **Login Kit** **sama persis** (termasuk domain, path `/api/callback`,
+`https://`, dan ada/tidaknya trailing slash) dengan `TIKTOK_REDIRECT_URI` di atas.
+Jangan memakai URL deployment preview jika kamu login lewat domain production.
+
+### Jika muncul `We couldn't log in with TikTok` / `client_key`
+
+1. Buka `https://domain-kamu.vercel.app/api/config-check`. Semua nilai pada
+   `checks` harus `true`. Endpoint ini tidak menampilkan Client Key maupun Secret.
+2. Jika semua `true` tetapi TikTok masih menampilkan error `client_key`, buka
+   TikTok Developer Portal → **Manage apps** → pilih aplikasi yang sama →
+   **Basic Information**. Salin ulang **Client Key** ke Vercel sebagai
+   `TIKTOK_CLIENT_KEY`. Jangan memasukkan App ID, Client Secret, atau key dari
+   aplikasi TikTok yang berbeda. Hindari spasi saat menyalin.
+3. Pastikan produk **Login Kit** sudah ditambahkan/dikonfigurasi pada aplikasi itu
+   dan Redirect URI production yang persis sama sudah disimpan di Login Kit.
+4. Simpan Environment Variables untuk environment yang dipakai (Production jika
+   situs production), lalu lakukan **Redeploy**. Coba login lagi dari domain itu.
+
+Catatan: `api/config-check` hanya memeriksa format dan keberadaan Environment
+Variables; ia tidak bisa memverifikasi apakah Client Key masih aktif atau terdaftar
+untuk aplikasi yang benar. Pemeriksaan akhir dilakukan oleh TikTok saat login.
 
 ## Langkah 4 — Buka di iPhone
 
@@ -82,6 +101,7 @@ tiktok-uploader/
 │   └── index.html          # UI: login, pilih video, caption, publish
 ├── api/
 │   ├── auth.js              # redirect ke halaman login TikTok
+│   ├── config-check.js      # cek konfigurasi tanpa menampilkan key/secret
 │   ├── callback.js          # tukar code -> access_token (pakai Client Secret)
 │   ├── _session.js          # baca/refresh session dari cookie
 │   ├── session.js           # cek status login untuk UI

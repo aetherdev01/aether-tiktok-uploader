@@ -1,21 +1,40 @@
 // GET /api/auth
-// Redirects the user to TikTok's real login/consent screen.
-// No secrets are used here — this step is safe to trigger from the browser.
-
+// Redirects the user to TikTok's official OAuth authorization page.
 const crypto = require('crypto');
 
-module.exports = (req, res) => {
-  const clientKey = process.env.TIKTOK_CLIENT_KEY;
-  const redirectUri = process.env.TIKTOK_REDIRECT_URI; // e.g. https://your-app.vercel.app/api/callback
+function isPlaceholder(value) {
+  return !value || /^(isi_|your_|replace_|change[_ -]?me|<|\{)/i.test(value.trim());
+}
 
-  if (!clientKey || !redirectUri) {
-    res.status(500).send('Server belum dikonfigurasi: TIKTOK_CLIENT_KEY / TIKTOK_REDIRECT_URI belum diset.');
+module.exports = (req, res) => {
+  const clientKey = String(process.env.TIKTOK_CLIENT_KEY || '').trim();
+  const redirectUri = String(process.env.TIKTOK_REDIRECT_URI || '').trim();
+
+  const problems = [];
+  if (isPlaceholder(clientKey)) {
+    problems.push('TIKTOK_CLIENT_KEY kosong atau masih berupa contoh. Isi dengan Client Key dari aplikasi yang sama di TikTok Developer Portal.');
+  } else if (/\s/.test(clientKey)) {
+    problems.push('TIKTOK_CLIENT_KEY mengandung spasi/baris baru. Salin ulang nilainya tanpa spasi tambahan.');
+  }
+
+  let parsedRedirect = null;
+  try {
+    parsedRedirect = new URL(redirectUri);
+  } catch (_) {
+    // Report below using a safe configuration message.
+  }
+  if (!parsedRedirect || parsedRedirect.protocol !== 'https:' || parsedRedirect.search || parsedRedirect.hash) {
+    problems.push('TIKTOK_REDIRECT_URI harus berupa URL HTTPS absolut, tanpa query atau hash, misalnya https://domain-kamu.vercel.app/api/callback.');
+  }
+
+  if (problems.length) {
+    res.status(500).setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.end('Konfigurasi login TikTok belum benar:\n\n- ' + problems.join('\n- ') + '\n\nPerbarui Environment Variables di Vercel, lalu Redeploy.');
     return;
   }
 
-  // CSRF protection: random state, stored in a short-lived cookie, checked in /api/callback.
+  // CSRF protection: random state stored in a short-lived cookie and checked in /api/callback.
   const state = crypto.randomBytes(16).toString('hex');
-
   const scope = ['user.info.basic', 'video.upload', 'video.publish'].join(',');
 
   const authorizeUrl = new URL('https://www.tiktok.com/v2/auth/authorize/');
@@ -25,6 +44,7 @@ module.exports = (req, res) => {
   authorizeUrl.searchParams.set('redirect_uri', redirectUri);
   authorizeUrl.searchParams.set('state', state);
 
+  res.setHeader('Cache-Control', 'no-store');
   res.setHeader('Set-Cookie', [
     `tt_oauth_state=${state}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600`
   ]);
