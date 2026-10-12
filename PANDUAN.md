@@ -53,6 +53,17 @@ Jangan memakai URL deployment preview jika kamu login lewat domain production.
 
 ### Jika muncul `We couldn't log in with TikTok` / `client_key`
 
+**Penting:** jika pemeriksaan `/api/config-check` menunjukkan semua nilai `true`, itu hanya berarti Environment Variables berbentuk benar. Itu tidak membuktikan app Production sudah aktif. Pada Developer Portal, jika status Production masih **Draft** dan Redirect URI di Login Kit masih kosong (seperti pada contoh screenshot), OAuth Production belum siap.
+
+1. Di TikTok Developer Portal → aplikasi yang sama → Products → Login Kit → Web, daftarkan Redirect URI persis seperti `TIKTOK_REDIRECT_URI` di Vercel (contoh format: `https://domain-kamu.vercel.app/api/callback`). Jangan masukkan placeholder domain.
+2. Untuk pengujian sebelum Production disetujui, gunakan konfigurasi **Sandbox** jika tersedia dan pastikan kredensial yang digunakan sesuai dengan mode itu. Untuk penggunaan Production, lengkapi kolom wajib, scope dan demo video, lalu Submit for review; tunggu sampai status disetujui/Live sesuai persyaratan TikTok.
+3. Pastikan `TIKTOK_CLIENT_KEY` dan `TIKTOK_CLIENT_SECRET` berasal dari aplikasi yang sama dan mode yang sedang diuji. Jangan memasukkan App ID atau Client Secret pada kolom Client Key.
+4. Cocokkan `TIKTOK_SCOPES` dengan scope yang sudah ditambahkan pada aplikasi. Default contoh meminta `user.info.basic,video.upload,video.publish`; scope upload/publish tambahan harus tersedia dan disetujui sesuai persyaratan TikTok. Untuk menguji login dasar saja, sementara set `TIKTOK_SCOPES=user.info.basic`; upload belum akan berfungsi sampai scope upload/publish dikonfigurasi dan diizinkan.
+5. Simpan perubahan Environment Variables untuk environment yang benar, Redeploy, lalu coba login lagi.
+
+Dokumentasi resmi: https://developers.tiktok.com/docs/en/login-kit-web dan https://developers.tiktok.com/docs/en/getting-started-create-an-app.
+
+
 1. Buka `https://domain-kamu.vercel.app/api/config-check`. Semua nilai pada
    `checks` harus `true`. Endpoint ini tidak menampilkan Client Key maupun Secret.
 2. Jika semua `true` tetapi TikTok masih menampilkan error `client_key`, buka

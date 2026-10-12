@@ -12,10 +12,14 @@ function parseCookies(header) {
 }
 
 module.exports = async (req, res) => {
-  const { code, state, error } = req.query;
+  const { code, state, error, error_description: errorDescription } = req.query;
+  res.setHeader('Cache-Control', 'no-store');
 
   if (error) {
-    res.status(400).send(`Login TikTok dibatalkan atau gagal: ${error}`);
+    const safeError = String(error).slice(0, 120);
+    const safeDescription = String(errorDescription || '').slice(0, 500);
+    res.status(400).setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.end(`Login/otorisasi TikTok gagal: ${safeError}${safeDescription ? `\nDetail: ${safeDescription}` : ''}\n\nPeriksa status app, scope, dan Redirect URI di TikTok Developer Portal.`);
     return;
   }
 
@@ -25,9 +29,15 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const clientKey = process.env.TIKTOK_CLIENT_KEY;
-  const clientSecret = process.env.TIKTOK_CLIENT_SECRET;
-  const redirectUri = process.env.TIKTOK_REDIRECT_URI;
+  const clientKey = String(process.env.TIKTOK_CLIENT_KEY || '').trim();
+  const clientSecret = String(process.env.TIKTOK_CLIENT_SECRET || '').trim();
+  const redirectUri = String(process.env.TIKTOK_REDIRECT_URI || '').trim();
+
+  if (!clientKey || !clientSecret || !redirectUri) {
+    res.status(500).setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.end('Konfigurasi OAuth server belum lengkap. Periksa TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET, dan TIKTOK_REDIRECT_URI di Vercel.');
+    return;
+  }
 
   try {
     const tokenRes = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
@@ -48,7 +58,8 @@ module.exports = async (req, res) => {
     const tokenData = await tokenRes.json();
 
     if (!tokenRes.ok || !tokenData.access_token) {
-      res.status(400).send(`Gagal menukar kode otorisasi: ${tokenData.error_description || tokenData.error || 'unknown error'}`);
+      res.status(400).setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.end(`Gagal menukar kode otorisasi: ${String(tokenData.error_description || tokenData.error || 'unknown error').slice(0, 500)}\n\nPastikan Client Key/Secret berasal dari app TikTok yang sama dan TIKTOK_REDIRECT_URI sama persis dengan URI yang dipakai saat meminta izin.`);
       return;
     }
 
@@ -73,6 +84,7 @@ module.exports = async (req, res) => {
     res.end();
 
   } catch (err) {
-    res.status(500).send('Terjadi kesalahan server saat login TikTok. Coba lagi.');
+    res.status(500).setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.end('Terjadi kesalahan server saat menyelesaikan login TikTok. Periksa Vercel → Functions → api/callback untuk detail, lalu coba lagi.');
   }
 };
